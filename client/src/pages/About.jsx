@@ -17,11 +17,11 @@ const About = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div className="glass-card p-6 text-center">
+        {/* <div className="glass-card p-6 text-center">
           <div className="avatar mx-auto mb-4" style={{width: 80, height: 80, fontSize: '2rem'}}>RS</div>
           <h3 className="text-xl font-bold">Rahul S.</h3>
           <p className="text-primary">Founder & Developer</p>
-        </div>
+        </div> */}
         <div className="glass-card p-6 flex flex-col justify-center">
           <h3 className="text-xl font-bold mb-2">Join Our Journey</h3>
           <p className="text-muted mb-4">We are continuously taking feedback and improving the platform. Feel free to reach out if you want to contribute!</p>

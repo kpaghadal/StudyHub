@@ -1,210 +1,267 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { mockGroups, mockResources, mockMessages } from '../data/mockData';
-import { ArrowLeft, Plus, FileText, Video, Link as LinkIcon, Download, Heart, MessageSquare, Send } from 'lucide-react';
+import { useApp } from '../context/AppContext';
+import { ArrowLeft, Plus, FileText, Video, Link as LinkIcon, Download, Heart, MessageSquare, Send, Users, TrendingUp, Bookmark, Trash2, Edit2, Pin, MoreVertical, Award } from 'lucide-react';
 import AddResourceModal from '../components/AddResourceModal';
+import EditGroupModal from '../components/EditGroupModal';
+import ConfirmDialog from '../components/ConfirmDialog';
 import './GroupDetail.css';
 
-const GroupDetail = () => {
+export default function GroupDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [isAddResourceOpen, setIsAddResourceOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('chat'); // 'chat' or 'resources'
-  const [messageText, setMessageText] = useState('');
-  
-  const group = mockGroups.find(g => g.id === parseInt(id));
-  const resources = mockResources.filter(r => r.groupId === parseInt(id));
-  const messages = mockMessages.filter(m => m.groupId === parseInt(id));
+  const { groups, resources, messages, deleteGroup, toggleLike, togglePinResource, deleteResource, sendMessage } = useApp();
+  const [tab, setTab] = useState('resources');
+  const [showAddRes, setShowAddRes] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
+  const [deleteGroupConfirm, setDeleteGroupConfirm] = useState(false);
+  const [deleteResConfirm, setDeleteResConfirm] = useState(null);
+  const [msgText, setMsgText] = useState('');
+  const chatEnd = useRef(null);
 
-  const messagesEndRef = useRef(null);
+  const group = groups.find(g => g.id === parseInt(id));
+  const groupResources = resources.filter(r => r.groupId === parseInt(id)).sort((a, b) => {
+    if (a.pinned && !b.pinned) return -1;
+    if (!a.pinned && b.pinned) return 1;
+    return new Date(b.uploadedAt) - new Date(a.uploadedAt);
+  });
+  const groupMessages = [...messages.filter(m => m.groupId === parseInt(id))].reverse();
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
+  useEffect(() => { chatEnd.current?.scrollIntoView({ behavior: 'smooth' }); }, [groupMessages.length]);
 
-  useEffect(() => {
-    if (activeTab === 'chat') {
-      scrollToBottom();
-    }
-  }, [activeTab, messages]);
+  if (!group) return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh', gap: '1rem' }}>
+      <div style={{ fontSize: '3rem' }}>😕</div>
+      <h2 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '1.5rem', color: '#191c1e' }}>Group Not Found</h2>
+      <button onClick={() => navigate('/app/groups')} style={{ padding: '0.625rem 1.5rem', borderRadius: '999px', background: '#eef2ff', color: '#6366f1', fontWeight: 700, border: 'none', cursor: 'pointer' }}>Back to Groups</button>
+    </div>
+  );
 
-  const handleSendMessage = (e) => {
+  const handleSend = (e) => {
     e.preventDefault();
-    if (!messageText.trim()) return;
-    console.log("Sending msg:", messageText);
-    // In a real app we'd add to state/backend here
-    setMessageText('');
+    if (!msgText.trim()) return;
+    sendMessage(group.id, msgText.trim());
+    setMsgText('');
   };
 
-  if (!group) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full">
-        <h2 className="text-2xl font-bold">Group Not Found</h2>
-        <button className="btn btn-outline mt-4" onClick={() => navigate('/app/groups')}>
-          Back to Groups
-        </button>
-      </div>
-    );
-  }
+  const typeIcon = (type) => {
+    const map = { PDF: <FileText size={18} />, Video: <Video size={18} />, Link: <LinkIcon size={18} />, Notes: <FileText size={18} /> };
+    return map[type] || <FileText size={18} />;
+  };
 
-  const renderIcon = (type) => {
-    switch(type) {
-      case 'PDF': return <FileText className="text-accent" />;
-      case 'Video': return <Video className="text-primary" />;
-      case 'Link': return <LinkIcon className="text-secondary" />;
-      default: return <FileText />;
-    }
+  const timeAgo = (iso) => {
+    const d = Math.floor((Date.now() - new Date(iso)) / 86400000);
+    if (d === 0) return 'Today';
+    if (d === 1) return 'Yesterday';
+    return `${d} days ago`;
   };
 
   return (
-    <div className="group-detail-container">
-      <div className="detail-header glass-card">
-        <button className="btn-icon mb-2" onClick={() => navigate('/app/groups')}>
-          <ArrowLeft size={20} />
-        </button>
-        <div className="flex justify-between items-start flex-wrap gap-4">
-          <div>
-            <div className="flex gap-2 mb-2">
-              <span className="badge">{group.topic}</span>
-              <span className="badge" style={{backgroundColor: '#dcfce7', color: '#166534'}}>{group.semester}</span>
-            </div>
-            <h1 className="text-3xl font-bold text-primary mb-2">{group.name}</h1>
-            <p className="text-muted max-w-2xl">{group.description}</p>
-          </div>
-          <button className="btn btn-primary" onClick={() => setIsAddResourceOpen(true)}>
-            <Plus size={18} />
-            <span>Share Resource</span>
-          </button>
+    <div style={{ paddingBottom: '3rem' }}>
+      {/* Hero Banner */}
+      <div style={{ background: 'linear-gradient(135deg, #1e1b4b, #4338ca, #7c3aed)', borderRadius: '1.75rem', overflow: 'hidden', marginBottom: '1.5rem', position: 'relative', minHeight: '220px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', padding: '2rem' }}>
+        <div style={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(circle at 70% 30%, rgba(139,92,246,0.4) 0%, transparent 60%)', pointerEvents: 'none' }} />
+        {/* Top actions */}
+        <div style={{ position: 'absolute', top: '1.25rem', left: '1.25rem', display: 'flex', gap: '0.5rem' }}>
+          <button onClick={() => navigate('/app/groups')} style={{ width: '2.25rem', height: '2.25rem', borderRadius: '50%', background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}><ArrowLeft size={18} /></button>
         </div>
-        
-        {/* Tabs */}
-        <div className="detail-tabs mt-6">
-          <button 
-            className={`tab-btn ${activeTab === 'chat' ? 'active' : ''}`}
-            onClick={() => setActiveTab('chat')}
-          >
-            <MessageSquare size={18} /> Chat
-          </button>
-          <button 
-            className={`tab-btn ${activeTab === 'resources' ? 'active' : ''}`}
-            onClick={() => setActiveTab('resources')}
-          >
-            <FileText size={18} /> Resources
-          </button>
+        <div style={{ position: 'absolute', top: '1.25rem', right: '1.25rem', display: 'flex', gap: '0.5rem' }}>
+          <button onClick={() => setShowEdit(true)} style={{ width: '2.25rem', height: '2.25rem', borderRadius: '50%', background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}><Edit2 size={15} /></button>
+          <button onClick={() => setDeleteGroupConfirm(true)} style={{ width: '2.25rem', height: '2.25rem', borderRadius: '50%', background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}><Trash2 size={15} /></button>
+        </div>
+
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
+            <span style={{ background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)', color: '#fff', fontSize: '0.65rem', fontWeight: 700, padding: '0.25rem 0.75rem', borderRadius: '999px', textTransform: 'uppercase' }}>{group.topic}</span>
+            <span style={{ background: '#6366f1', color: '#fff', fontSize: '0.65rem', fontWeight: 700, padding: '0.25rem 0.75rem', borderRadius: '999px', textTransform: 'uppercase' }}>{group.semester}</span>
+          </div>
+          <h1 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: 'clamp(1.5rem,3vw,2.5rem)', color: '#fff', marginBottom: '0.5rem', lineHeight: 1.15 }}>{group.name}</h1>
+          <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.875rem', maxWidth: '600px', lineHeight: 1.6 }}>{group.description}</p>
+          <div style={{ display: 'flex', gap: '1.5rem', marginTop: '1rem' }}>
+            <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.375rem' }}><Users size={13} /> {group.members} members</span>
+            <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.8rem' }}>📚 {groupResources.length} resources</span>
+          </div>
         </div>
       </div>
 
-      <div className="detail-content grid-layout">
-        <div className="main-column glass-card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          
-          {activeTab === 'chat' ? (
-            <div className="chat-container">
-              <div className="chat-messages">
-                {messages.length > 0 ? messages.map(msg => (
-                  msg.isSystem ? (
-                    <div key={msg.id} className="system-message">
-                      <span>{msg.text}</span>
-                      <span className="msg-time">{msg.timestamp}</span>
-                    </div>
-                  ) : (
-                    <div key={msg.id} className={`chat-bubble-wrapper ${msg.isCurrentUser ? 'current-user' : ''}`}>
-                      {!msg.isCurrentUser && (
-                        <div className="chat-avatar">{msg.avatar}</div>
-                      )}
-                      <div className={`chat-bubble ${msg.isCurrentUser ? 'bubble-primary' : 'bubble-light'}`}>
-                        {!msg.isCurrentUser && <div className="chat-sender">{msg.sender}</div>}
-                        <div className="chat-text">{msg.text}</div>
-                        <div className="chat-time">{msg.timestamp}</div>
+      {/* Tabs */}
+      <div style={{ display: 'flex', borderBottom: '1px solid #f2f4f6', marginBottom: '1.75rem', overflowX: 'auto' }}>
+        {[
+          { id: 'resources', label: 'Resources', icon: <FolderIcon /> },
+          { id: 'members', label: `Members (${group.members})`, icon: <Users size={15} /> },
+          { id: 'discussion', label: 'Discussion', icon: <MessageSquare size={15} /> },
+        ].map(t => (
+          <button key={t.id} onClick={() => setTab(t.id)} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.875rem 1.5rem', border: 'none', borderBottom: `2px solid ${tab === t.id ? '#6366f1' : 'transparent'}`, background: 'transparent', color: tab === t.id ? '#6366f1' : '#767586', fontWeight: tab === t.id ? 700 : 500, fontSize: '0.875rem', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s' }}>
+            {t.icon} {t.label}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '2rem' }} className="detail-grid">
+
+        {/* ── Resources Tab ── */}
+        {tab === 'resources' && (
+          <>
+            <div>
+              {groupResources.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '4rem 2rem', background: '#fff', borderRadius: '1.5rem', boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
+                  <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📂</div>
+                  <h3 style={{ fontWeight: 700, color: '#191c1e', marginBottom: '0.375rem' }}>No resources yet</h3>
+                  <p style={{ fontSize: '0.875rem', color: '#767586', marginBottom: '1.5rem' }}>Be the first to share a resource with this group!</p>
+                  <button onClick={() => setShowAddRes(true)} style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', color: '#fff', fontWeight: 700, padding: '0.625rem 1.5rem', borderRadius: '999px', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}><Plus size={16} /> Add Resource</button>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '1rem', position: 'relative' }}>
+                  {groupResources.map(res => (
+                    <div key={res.id} style={{ background: '#fff', borderRadius: '1.5rem', padding: '1.25rem', boxShadow: '0 4px 20px rgba(0,0,0,0.03)', display: 'flex', flexDirection: 'column', position: 'relative', border: res.pinned ? '1px solid #a5b4fc' : '1px solid transparent', transition: 'all 0.2s' }}>
+                      {res.pinned && <div style={{ position: 'absolute', top: '0.75rem', left: '0.75rem', color: '#6366f1' }}><Pin size={12} /></div>}
+                      <div style={{ position: 'absolute', top: '0.75rem', right: '0.75rem', display: 'flex', gap: '0.375rem' }}>
+                        <button onClick={() => togglePinResource(res.id)} title="Pin" style={{ ...rBtn, color: res.pinned ? '#6366f1' : '#767586' }}><Bookmark size={12} /></button>
+                        <button onClick={() => setDeleteResConfirm(res)} title="Delete" style={{ ...rBtn, color: '#ef4444' }}><Trash2 size={12} /></button>
+                      </div>
+
+                      <div style={{ width: '2.75rem', height: '2.75rem', borderRadius: '0.875rem', background: '#eef2ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6366f1', marginBottom: '0.875rem' }}>
+                        {typeIcon(res.type)}
+                      </div>
+                      <h4 style={{ fontWeight: 700, color: '#191c1e', fontSize: '0.92rem', lineHeight: 1.3, marginBottom: '0.375rem', paddingRight: '2.5rem' }}>{res.title}</h4>
+                      {res.description && <p style={{ fontSize: '0.75rem', color: '#767586', lineHeight: 1.5, marginBottom: '0.75rem', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{res.description}</p>}
+                      <div style={{ display: 'flex', gap: '0.375rem', flexWrap: 'wrap', marginBottom: '0.875rem' }}>
+                        <span style={{ background: '#f2f4f6', color: '#464554', fontSize: '0.6rem', fontWeight: 700, padding: '0.2rem 0.5rem', borderRadius: '4px', textTransform: 'uppercase' }}>{res.type}</span>
+                        {res.tags?.map(t => <span key={t} style={{ background: '#eef2ff', color: '#6366f1', fontSize: '0.6rem', fontWeight: 700, padding: '0.2rem 0.5rem', borderRadius: '4px' }}>{t}</span>)}
+                      </div>
+                      <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #f2f4f6', paddingTop: '0.75rem' }}>
+                        <span style={{ fontSize: '0.68rem', color: '#767586' }}>{res.author} · {timeAgo(res.uploadedAt)}</span>
+                        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                          <button onClick={() => toggleLike(res.id)} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', background: 'none', border: 'none', cursor: 'pointer', color: res.likedByUser ? '#ef4444' : '#767586', fontSize: '0.72rem', fontWeight: 600 }}>
+                            <Heart size={13} style={{ fill: res.likedByUser ? '#ef4444' : 'none' }} /> {res.likes}
+                          </button>
+                          <button style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', cursor: 'pointer', color: '#767586' }}><Download size={13} /></button>
+                        </div>
                       </div>
                     </div>
-                  )
-                )) : (
-                  <div className="empty-state p-8">
-                    <p className="text-muted">No messages yet. Say hi to the group!</p>
-                  </div>
-                )}
-                <div ref={messagesEndRef} />
-              </div>
-              <div className="chat-input-area border-t border-slate-200">
-                <form className="chat-form" onSubmit={handleSendMessage}>
-                  <input 
-                    type="text" 
-                    className="chat-input" 
-                    placeholder="Type a message..." 
-                    value={messageText}
-                    onChange={(e) => setMessageText(e.target.value)}
-                  />
-                  <button type="submit" className="btn btn-primary p-2 rounded-full" disabled={!messageText.trim()}>
-                    <Send size={18} />
-                  </button>
-                </form>
-              </div>
-            </div>
-          ) : (
-            <div className="resources-container p-6">
-              <h2 className="text-xl font-bold mb-4">Shared Resources</h2>
-              <div className="resources-list">
-                {resources.length > 0 ? resources.map(resource => (
-                  <div key={resource.id} className="resource-item border border-slate-200 rounded-lg bg-slate-50">
-                    <div className="resource-icon">
-                      {renderIcon(resource.type)}
-                    </div>
-                    <div className="resource-info">
-                      <h3 className="font-semibold text-lg">{resource.title}</h3>
-                      <p className="text-sm text-muted">Shared by {resource.author} • {resource.uploadedAt}</p>
-                    </div>
-                    <div className="resource-actions">
-                      <button className="btn-icon resource-like text-muted hover:text-accent">
-                        <Heart size={18} />
-                        <span className="text-xs ml-1">{resource.likes}</span>
-                      </button>
-                      <button className="btn-icon text-primary">
-                        <Download size={18} />
-                      </button>
-                    </div>
-                  </div>
-                )) : (
-                  <div className="empty-state p-8">
-                    <p className="text-muted">No resources shared yet. Be the first!</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+                  ))}
+                </div>
+              )}
 
-        </div>
+              {/* Activity Stats */}
+              {groupResources.length > 0 && (
+                <div style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', borderRadius: '1.5rem', padding: '1.75rem 2rem', marginTop: '1.5rem', color: '#fff', display: 'flex', flexWrap: 'wrap', gap: '1.5rem', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <h3 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '1.1rem', marginBottom: '0.375rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><TrendingUp size={18} /> Activity Insights</h3>
+                    <p style={{ fontSize: '0.82rem', opacity: 0.8, maxWidth: '320px', lineHeight: 1.6 }}>This group has grown by 40% in resource sharing this month.</p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '2rem' }}>
+                    {[{ v: `${groupResources.reduce((s, r) => s + r.likes, 0)}`, l: 'Likes' }, { v: groupResources.length, l: 'Resources' }, { v: `#${Math.max(1, 5 - Math.floor(groupResources.length / 2))}`, l: 'Rank' }].map(s => (
+                      <div key={s.l} style={{ textAlign: 'center' }}>
+                        <p style={{ fontSize: '1.75rem', fontWeight: 800, fontFamily: 'Manrope, sans-serif' }}>{s.v}</p>
+                        <p style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', opacity: 0.7 }}>{s.l}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
 
-        <div className="side-column">
-          <div className="glass-card p-4 mb-4">
-            <h3 className="font-bold mb-2">Group Info</h3>
-            <div className="info-list">
-              <div className="info-item">
-                <span className="text-muted text-sm">Members:</span>
-                <span className="font-semibold">{group.members}</span>
-              </div>
-              <div className="info-item">
-                <span className="text-muted text-sm">Last Active:</span>
-                <span className="font-semibold">{group.recentActivity}</span>
+            {/* Sidebar - Top Contributors */}
+            <div className="detail-sidebar">
+              <div style={{ background: '#fff', borderRadius: '1.5rem', padding: '1.5rem', boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
+                <h3 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '1rem', color: '#191c1e', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Award size={16} style={{ color: '#f59e0b' }} /> Top Contributors</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  {[{ n: 'Dr. Elias Thorne', c: 24, medal: '🥇' }, { n: 'Sarah Jenkins', c: 18, medal: '🥈' }, { n: 'Rahul Shah', c: 11, medal: '🥉' }].map((c, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.625rem', borderRadius: '0.875rem', background: '#f7f9fb' }}>
+                      <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(c.n)}&background=random&size=36`} style={{ width: 36, height: 36, borderRadius: '50%' }} alt={c.n} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontWeight: 700, fontSize: '0.82rem', color: '#191c1e', marginBottom: '0.1rem' }}>{c.medal} {c.n}</p>
+                        <p style={{ fontSize: '0.7rem', color: '#767586' }}>{c.c} resources shared</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <button onClick={() => setShowAddRes(true)} style={{ width: '100%', marginTop: '1rem', padding: '0.625rem', borderRadius: '999px', background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', color: '#fff', fontWeight: 700, fontSize: '0.82rem', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                  <Plus size={15} /> Add Resource
+                </button>
               </div>
             </div>
-            
-            <div className="mt-4">
-              <h4 className="text-sm font-semibold mb-2">Tags</h4>
-              <div className="flex flex-wrap gap-2">
-                {group.tags.map(tag => (
-                  <span key={tag} className="badge badge-outline">{tag}</span>
-                ))}
-              </div>
+          </>
+        )}
+
+        {/* ── Members Tab ── */}
+        {tab === 'members' && (
+          <div style={{ background: '#fff', borderRadius: '1.5rem', padding: '1.5rem', boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
+            <h3 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, marginBottom: '1.25rem' }}>Group Members ({group.members})</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '0.75rem' }}>
+              {Array.from({ length: Math.min(group.members, 12) }, (_, i) => ({
+                name: ['Alex Johnson', 'Maria Garcia', 'Sam Smith', 'Priya Nair', 'David Lee', 'Elena M.', 'Rahul Shah', 'Aiko Tanaka', 'Carlos R.', 'Fatima A.', 'John D.', 'Lily Chen'][i % 12],
+                role: ['Year 3', 'Year 2', 'Year 4', 'Year 1', 'Year 3', 'Year 2', 'Year 4', 'Year 3', 'Year 1', 'Year 2', 'Year 3', 'Year 4'][i % 12],
+              })).map((m, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem', borderRadius: '0.875rem', border: '1px solid #f2f4f6', transition: 'all 0.15s' }}>
+                  <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(m.name)}&background=random&size=40`} style={{ width: 40, height: 40, borderRadius: '50%' }} alt={m.name} />
+                  <div>
+                    <p style={{ fontWeight: 700, fontSize: '0.85rem', color: '#191c1e' }}>{m.name}</p>
+                    <p style={{ fontSize: '0.72rem', color: '#767586' }}>{group.topic} · {m.role}</p>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
-        </div>
+        )}
+
+        {/* ── Discussion Tab ── */}
+        {tab === 'discussion' && (
+          <div style={{ background: '#fff', borderRadius: '1.5rem', boxShadow: '0 4px 20px rgba(0,0,0,0.03)', display: 'flex', flexDirection: 'column', height: '560px' }}>
+            <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #f2f4f6' }}>
+              <h3 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, fontSize: '1rem', color: '#191c1e' }}>Group Discussion</h3>
+            </div>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {groupMessages.map(msg => (
+                <div key={msg.id} style={{ display: 'flex', justifyContent: msg.isCurrentUser ? 'flex-end' : 'flex-start', gap: '0.625rem', alignItems: 'flex-end' }}>
+                  {!msg.isCurrentUser && !msg.isSystem && (
+                    <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#eef2ff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem', fontWeight: 700, color: '#6366f1', flexShrink: 0 }}>{msg.avatar}</div>
+                  )}
+                  {msg.isSystem ? (
+                    <div style={{ width: '100%', textAlign: 'center', fontSize: '0.72rem', color: '#767586', fontStyle: 'italic', background: '#f7f9fb', padding: '0.375rem 0.75rem', borderRadius: '999px' }}>{msg.text}</div>
+                  ) : (
+                    <div style={{ maxWidth: '70%', padding: '0.75rem 1rem', borderRadius: '1rem', background: msg.isCurrentUser ? 'linear-gradient(135deg,#6366f1,#8b5cf6)' : '#f2f4f6', borderBottomRightRadius: msg.isCurrentUser ? '0.25rem' : '1rem', borderBottomLeftRadius: msg.isCurrentUser ? '1rem' : '0.25rem' }}>
+                      {!msg.isCurrentUser && <div style={{ fontSize: '0.65rem', fontWeight: 700, color: '#6366f1', marginBottom: '0.25rem' }}>{msg.sender}</div>}
+                      <p style={{ fontSize: '0.875rem', color: msg.isCurrentUser ? '#fff' : '#191c1e', lineHeight: 1.5 }}>{msg.text}</p>
+                      <div style={{ fontSize: '0.65rem', marginTop: '0.25rem', color: msg.isCurrentUser ? 'rgba(255,255,255,0.6)' : '#767586', textAlign: msg.isCurrentUser ? 'right' : 'left' }}>{msg.timestamp}</div>
+                    </div>
+                  )}
+                </div>
+              ))}
+              <div ref={chatEnd} />
+            </div>
+            <form onSubmit={handleSend} style={{ padding: '1rem 1.25rem', borderTop: '1px solid #f2f4f6', display: 'flex', gap: '0.625rem' }}>
+              <input value={msgText} onChange={e => setMsgText(e.target.value)} placeholder="Type a message…" style={{ flex: 1, background: '#f7f9fb', border: '1px solid #e0e3e5', borderRadius: '999px', padding: '0.625rem 1rem', fontSize: '0.875rem', fontFamily: 'Inter, sans-serif', outline: 'none', color: '#191c1e' }} />
+              <button type="submit" style={{ width: '2.5rem', height: '2.5rem', borderRadius: '50%', background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', flexShrink: 0 }}><Send size={15} /></button>
+            </form>
+          </div>
+        )}
       </div>
 
-      {isAddResourceOpen && (
-        <AddResourceModal onClose={() => setIsAddResourceOpen(false)} groupId={group.id} />
+      {/* Floating Add Button */}
+      {tab === 'resources' && (
+        <button onClick={() => setShowAddRes(true)} style={{ position: 'fixed', bottom: '2rem', right: '2rem', width: '3.5rem', height: '3.5rem', borderRadius: '50%', background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', color: '#fff', border: 'none', cursor: 'pointer', boxShadow: '0 8px 24px rgba(99,102,241,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 40, transition: 'transform 0.2s' }}>
+          <Plus size={22} />
+        </button>
+      )}
+
+      {showAddRes && <AddResourceModal onClose={() => setShowAddRes(false)} groupId={group.id} />}
+      {showEdit && <EditGroupModal group={group} onClose={() => setShowEdit(false)} />}
+      {deleteGroupConfirm && (
+        <ConfirmDialog title="Delete Group" message={`Delete "${group.name}"? All resources and messages will be lost.`}
+          onConfirm={() => { deleteGroup(group.id, group.name); navigate('/app/groups'); }}
+          onCancel={() => setDeleteGroupConfirm(false)} />
+      )}
+      {deleteResConfirm && (
+        <ConfirmDialog title="Delete Resource" message={`Remove "${deleteResConfirm.title}" from this group?`}
+          onConfirm={() => { deleteResource(deleteResConfirm.id); setDeleteResConfirm(null); }}
+          onCancel={() => setDeleteResConfirm(null)} />
       )}
     </div>
   );
-};
+}
 
-export default GroupDetail;
+const FolderIcon = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></svg>;
+
+const rBtn = { background: 'rgba(242,244,246,0.9)', border: 'none', borderRadius: '0.375rem', width: '1.5rem', height: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' };
