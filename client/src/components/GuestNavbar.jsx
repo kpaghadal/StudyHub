@@ -15,10 +15,11 @@ const GuestNavbar = () => {
         </Link>
         
         <ul className="nav-links">
-          <li><NavLink to="/" className={({isActive}) => isActive ? "nav-link active" : "nav-link"}>Home</NavLink></li>
+          <li><NavLink to="/" end className={({isActive}) => isActive ? "nav-link active" : "nav-link"}>Home</NavLink></li>
           <li><NavLink to="/features" className={({isActive}) => isActive ? "nav-link active" : "nav-link"}>Features</NavLink></li>
-          <li><NavLink to="/about" className={({isActive}) => isActive ? "nav-link active" : "nav-link"}>About Us</NavLink></li>
-          <li><NavLink to="/contact" className={({isActive}) => isActive ? "nav-link active" : "nav-link"}>Contact</NavLink></li>
+          <li><NavLink to="/guest/groups" className={({isActive}) => isActive ? "nav-link active" : "nav-link"}>Browse Groups</NavLink></li>
+          <li><NavLink to="/guest/resources" className={({isActive}) => isActive ? "nav-link active" : "nav-link"}>Resources</NavLink></li>
+          <li><NavLink to="/about" className={({isActive}) => isActive ? "nav-link active" : "nav-link"}>About</NavLink></li>
         </ul>
         
         <div className="nav-auth">

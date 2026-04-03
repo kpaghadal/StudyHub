@@ -6,7 +6,7 @@ import './Dashboard.css';
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { groups, resources, messages } = useApp();
+  const { groups, resources, messages, currentUser } = useApp();
   const [addResOpen, setAddResOpen] = useState(false);
 
   const totalResources = resources.length;
@@ -34,14 +34,14 @@ export default function Dashboard() {
     return <FileText size={15} style={{ color: '#6366f1' }} />;
   };
 
-  const trendingGroups = [...groups].sort((a, b) => b.members - a.members).slice(0, 2);
+  const trendingGroups = [...groups].sort((a, b) => b.memberCount - a.memberCount).slice(0, 2);
 
   return (
     <div className="dashboard-container">
       {/* Header */}
       <div className="dashboard-header" style={{ marginBottom: '2rem' }}>
         <h1 style={{ fontFamily: 'Manrope, sans-serif', fontSize: '1.75rem', fontWeight: 800, color: '#191c1e', marginBottom: '0.375rem' }}>
-          Welcome back, <span style={{ color: '#6366f1' }}>Alex</span> 👋
+          Welcome back, <span style={{ color: '#6366f1' }}>{currentUser?.name?.split(' ')[0] || 'Scholar'}</span> 👋
         </h1>
         <p style={{ color: '#767586', fontSize: '0.875rem' }}>Your collaborative ecosystem is humming with activity today.</p>
       </div>
@@ -124,7 +124,7 @@ export default function Dashboard() {
                   onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.04)'; }}>
                   <div style={{ height: '5rem', background: `linear-gradient(135deg, hsl(${g.id * 50}, 60%, 30%), hsl(${g.id * 50 + 40}, 70%, 50%))`, display: 'flex', alignItems: 'center', padding: '1rem', position: 'relative' }}>
                     <div style={{ background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(4px)', color: '#fff', fontSize: '0.6rem', fontWeight: 700, padding: '0.2rem 0.5rem', borderRadius: '999px', position: 'absolute', top: '0.625rem', left: '0.625rem', textTransform: 'uppercase' }}>
-                      {g.members > 200 ? '🔥 HOT' : '✨ NEW'}
+                      {g.memberCount > 200 ? '🔥 HOT' : '✨ NEW'}
                     </div>
                   </div>
                   <div style={{ padding: '1rem' }}>
@@ -134,7 +134,7 @@ export default function Dashboard() {
                       {g.tags.slice(0, 2).map(t => <span key={t} style={{ background: '#eef2ff', color: '#6366f1', fontSize: '0.6rem', fontWeight: 700, padding: '0.2rem 0.5rem', borderRadius: '4px' }}>{t}</span>)}
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: '0.72rem', fontWeight: 600, color: '#6366f1', background: '#eef2ff', padding: '0.2rem 0.625rem', borderRadius: '999px' }}>{g.members} members</span>
+                      <span style={{ fontSize: '0.72rem', fontWeight: 600, color: '#6366f1', background: '#eef2ff', padding: '0.2rem 0.625rem', borderRadius: '999px' }}>{g.memberCount} members</span>
                       <button onClick={e => { e.stopPropagation(); navigate(`/app/groups/${g.id}`); }} style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', color: '#fff', fontSize: '0.7rem', fontWeight: 700, padding: '0.375rem 0.875rem', borderRadius: '999px', border: 'none', cursor: 'pointer' }}>View Group</button>
                     </div>
                   </div>

@@ -1,0 +1,4 @@
+/* GroupDetail styles are handled in the component via inline styles and index.css */
+.group-detail-container {
+  overflow-x: hidden;
+}

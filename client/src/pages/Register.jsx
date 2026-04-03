@@ -1,47 +1,116 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Users } from 'lucide-react';
-import './GuestPages.css';
+import { Users, Mail, Lock, User, AlertCircle, ArrowRight } from 'lucide-react';
+import { useApp } from '../context/AppContext';
+import './Auth.css'; // We'll create a dedicated beautiful CSS for Auth
 
 const Register = () => {
   const navigate = useNavigate();
+  const { refreshData } = useApp();
+  const [formData, setFormData] = useState({ name: '', email: '', password: '' });
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleRegister = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Simulate register
-    navigate('/app');
+    if (formData.password.length < 6) {
+      return setError('Password must be at least 6 characters');
+    }
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch('http://localhost:5000/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Registration failed');
+      
+      localStorage.setItem('studyhub_token', data.token);
+      localStorage.setItem('studyhub_user', JSON.stringify(data));
+      
+      await refreshData();
+      navigate('/app');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="auth-page">
-      <div className="auth-card">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-primary-light text-primary mb-4">
-            <Users size={28} />
+    <div className="auth-container">
+      {/* Decorative background orbs */}
+      <div className="orb orb-1"></div>
+      <div className="orb orb-2"></div>
+
+      <div className="auth-card glass-panel">
+        <div className="auth-header">
+          <div className="auth-icon-wrapper">
+            <Users size={28} className="auth-icon" />
           </div>
-          <h1 className="text-2xl font-bold text-slate-900">Create an Account</h1>
-          <p className="text-muted mt-2">Join your peers and start collaborating</p>
+          <h1 className="auth-title">Create an Account</h1>
+          <p className="auth-subtitle">Join StudyHub and start collaborating</p>
         </div>
 
-        <form onSubmit={handleRegister}>
-          <div className="form-group">
-            <label className="form-label">Full Name</label>
-            <input type="text" required className="form-input" placeholder="Alex Johnson" />
+        {error && (
+          <div className="auth-alert error-alert">
+            <AlertCircle size={18} />
+            <span>{error}</span>
           </div>
-          <div className="form-group">
-            <label className="form-label">University Email</label>
-            <input type="email" required className="form-input" placeholder="student@university.edu" />
-          </div>
-          <div className="form-group mb-6">
-            <label className="form-label">Password</label>
-            <input type="password" required className="form-input" placeholder="Create a strong password" />
+        )}
+
+        <form onSubmit={handleSubmit} className="auth-form">
+          <div className="input-group">
+            <label>Full Name</label>
+            <div className="input-wrapper">
+              <User size={18} className="input-icon" />
+              <input 
+                type="text" 
+                required 
+                placeholder="Alex Johnson" 
+                value={formData.name}
+                onChange={e => setFormData({...formData, name: e.target.value})}
+              />
+            </div>
           </div>
 
-          <button type="submit" className="btn btn-primary w-full py-3 text-base">Create Account</button>
+          <div className="input-group">
+            <label>University Email</label>
+            <div className="input-wrapper">
+              <Mail size={18} className="input-icon" />
+              <input 
+                type="email" 
+                required 
+                placeholder="student@university.edu" 
+                value={formData.email}
+                onChange={e => setFormData({...formData, email: e.target.value})}
+              />
+            </div>
+          </div>
+
+          <div className="input-group">
+            <label>Password</label>
+            <div className="input-wrapper">
+              <Lock size={18} className="input-icon" />
+              <input 
+                type="password" 
+                required 
+                placeholder="Create a strong password" 
+                value={formData.password}
+                onChange={e => setFormData({...formData, password: e.target.value})}
+              />
+            </div>
+          </div>
+
+          <button type="submit" className="auth-submit-btn" disabled={loading}>
+            {loading ? <span className="loader-dot"></span> : <>Create Account <ArrowRight size={18} /></>}
+          </button>
         </form>
 
-        <div className="mt-6 text-center text-sm text-muted">
-          Already have an account? <Link to="/login" className="text-primary font-medium hover:underline">Sign in</Link>
+        <div className="auth-footer">
+          Already have an account? <Link to="/login" className="auth-link">Sign in</Link>
         </div>
       </div>
     </div>

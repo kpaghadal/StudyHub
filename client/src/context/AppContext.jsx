@@ -1,210 +1,49 @@
-import React, { createContext, useContext, useReducer, useCallback } from 'react';
+import React, { createContext, useContext, useReducer, useCallback, useEffect, useState } from 'react';
+import { io } from 'socket.io-client';
 
-// ─── Initial Mock Data ────────────────────────────────────────────────────────
+const API_URL = 'http://localhost:5000/api';
 
-const initialGroups = [
-  {
-    id: 1,
-    name: "Data Structures & Algorithms",
-    topic: "Computer Science",
-    semester: "Semester 3",
-    description: "A group dedicated to mastering DSA with weekly mock interviews and problem-solving sessions.",
-    members: 124,
-    tags: ["DSA", "LeetCode", "Java"],
-    recentActivity: "2025-03-27T13:00:00Z",
-    pinned: true,
-    createdAt: "2025-01-15T10:00:00Z",
-  },
-  {
-    id: 2,
-    name: "Calculus III Study Group",
-    topic: "Mathematics",
-    semester: "Semester 2",
-    description: "Sharing notes, past papers, and video lectures for advanced calculus.",
-    members: 89,
-    tags: ["Math", "Calculus", "Derivatives"],
-    recentActivity: "2025-03-26T09:00:00Z",
-    pinned: false,
-    createdAt: "2025-02-01T10:00:00Z",
-  },
-  {
-    id: 3,
-    name: "Web Development Bootcamp",
-    topic: "Software Engineering",
-    semester: "Semester 4",
-    description: "Learn full-stack web development. React, Node.js, and MongoDB resources.",
-    members: 256,
-    tags: ["React", "JavaScript", "Frontend"],
-    recentActivity: "2025-03-27T14:55:00Z",
-    pinned: true,
-    createdAt: "2025-01-10T10:00:00Z",
-  },
-  {
-    id: 4,
-    name: "Physics 101 Labs",
-    topic: "Physics",
-    semester: "Semester 1",
-    description: "Group for sharing lab experiment data and write-up templates.",
-    members: 45,
-    tags: ["Physics", "Mechanics", "Lab"],
-    recentActivity: "2025-03-24T08:00:00Z",
-    pinned: false,
-    createdAt: "2025-01-20T10:00:00Z",
-  },
-  {
-    id: 5,
-    name: "Machine Learning Fundamentals",
-    topic: "Computer Science",
-    semester: "Semester 6",
-    description: "Covering supervised, unsupervised learning and neural networks from scratch.",
-    members: 178,
-    tags: ["ML", "Python", "TensorFlow"],
-    recentActivity: "2025-03-27T11:30:00Z",
-    pinned: false,
-    createdAt: "2025-02-15T10:00:00Z",
-  },
-  {
-    id: 6,
-    name: "Business Strategy & Case Studies",
-    topic: "Business",
-    semester: "Semester 5",
-    description: "Analyzing real-world business cases and management strategy frameworks.",
-    members: 62,
-    tags: ["MBA", "Strategy", "Case Study"],
-    recentActivity: "2025-03-25T16:00:00Z",
-    pinned: false,
-    createdAt: "2025-02-20T10:00:00Z",
-  },
-];
-
-const initialResources = [
-  {
-    id: 1, groupId: 1,
-    title: "Graph Algorithms Cheatsheet",
-    type: "PDF", author: "Alex Johnson",
-    uploadedAt: "2025-03-25T10:00:00Z",
-    likes: 45, pinned: true, url: "#",
-    description: "A comprehensive reference for BFS, DFS, Dijkstra & Bellman-Ford.",
-    tags: ["Graphs", "DSA"],
-    likedByUser: false,
-  },
-  {
-    id: 2, groupId: 1,
-    title: "Dynamic Programming Top 50 Patterns",
-    type: "Video", author: "Maria Garcia",
-    uploadedAt: "2025-03-20T10:00:00Z",
-    likes: 120, pinned: false, url: "#",
-    description: "Video series covering the most common DP patterns for interviews.",
-    tags: ["DP", "LeetCode"],
-    likedByUser: false,
-  },
-  {
-    id: 3, groupId: 3,
-    title: "React Router v6 Complete Guide",
-    type: "Link", author: "Sam Smith",
-    uploadedAt: "2025-03-27T04:00:00Z",
-    likes: 32, pinned: false, url: "#",
-    description: "Official docs + examples for React Router 6, including nested routes.",
-    tags: ["React", "Routing"],
-    likedByUser: false,
-  },
-  {
-    id: 4, groupId: 1,
-    title: "Tree Traversal Techniques",
-    type: "PDF", author: "Priya Nair",
-    uploadedAt: "2025-03-22T10:00:00Z",
-    likes: 28, pinned: false, url: "#",
-    description: "In-order, pre-order, post-order explained with diagrams.",
-    tags: ["Trees", "DSA"],
-    likedByUser: false,
-  },
-  {
-    id: 5, groupId: 5,
-    title: "Neural Networks from Scratch",
-    type: "Video", author: "David Lee",
-    uploadedAt: "2025-03-26T12:00:00Z",
-    likes: 89, pinned: true, url: "#",
-    description: "Build a neural network using only NumPy, step by step.",
-    tags: ["ML", "Neural Nets"],
-    likedByUser: false,
-  },
-  {
-    id: 6, groupId: 3,
-    title: "Tailwind CSS Cheatsheet",
-    type: "PDF", author: "Elena M.",
-    uploadedAt: "2025-03-27T08:00:00Z",
-    likes: 55, pinned: false, url: "#",
-    description: "Quick reference for all Tailwind utility classes.",
-    tags: ["CSS", "Frontend"],
-    likedByUser: false,
-  },
-  {
-    id: 7, groupId: 2,
-    title: "Calculus Limits Practice Set",
-    type: "PDF", author: "Rahul S.",
-    uploadedAt: "2025-03-23T10:00:00Z",
-    likes: 18, pinned: false, url: "#",
-    description: "50 practice problems on limits and continuity with solutions.",
-    tags: ["Calculus", "Math"],
-    likedByUser: false,
-  },
-];
-
-const initialMessages = [
-  {
-    id: 1, groupId: 1,
-    sender: "Alex Johnson", avatar: "AJ",
-    text: "Hey everyone! Has anyone started on the weekly problems yet?",
-    timestamp: "10:30 AM", isCurrentUser: false, isSystem: false,
-  },
-  {
-    id: 2, groupId: 1,
-    sender: "Maria Garcia", avatar: "MG",
-    text: "Yes, I managed to solve the first two graph problems. Dynamic programming is still tricky though.",
-    timestamp: "10:35 AM", isCurrentUser: false, isSystem: false,
-  },
-  {
-    id: 3, groupId: 1,
-    sender: "System", avatar: "",
-    text: "Alex Johnson shared a resource: 'Graph Algorithms Cheatsheet'",
-    timestamp: "10:45 AM", isCurrentUser: false, isSystem: true,
-  },
-  {
-    id: 4, groupId: 1,
-    sender: "You", avatar: "YO",
-    text: "Thanks Alex! That cheatsheet is super helpful. Already bookmarked it.",
-    timestamp: "11:20 AM", isCurrentUser: true, isSystem: false,
-  },
-  {
-    id: 5, groupId: 3,
-    sender: "Sam Smith", avatar: "SS",
-    text: "Has anyone tried the new React Router v6 hooks? They're really clean!",
-    timestamp: "09:00 AM", isCurrentUser: false, isSystem: false,
-  },
-  {
-    id: 6, groupId: 3,
-    sender: "You", avatar: "YO",
-    text: "Yes! useNavigate is so much cleaner than the old history API.",
-    timestamp: "09:05 AM", isCurrentUser: true, isSystem: false,
-  },
-];
-
-// ─── Toast Queue ─────────────────────────────────────────────────────────────
-
-let nextId = 100;
-const genId = () => ++nextId;
-
-// ─── Reducer ─────────────────────────────────────────────────────────────────
+let nextId = 1000;
+const genId = () => (++nextId).toString();
 
 const initialState = {
-  groups: initialGroups,
-  resources: initialResources,
-  messages: initialMessages,
+  groups: [],
+  resources: [],
+  messages: [],
   toasts: [],
+  notifications: [],
+};
+
+const apiFetch = async (endpoint, options = {}) => {
+  const token = localStorage.getItem('studyhub_token');
+  const headers = { ...options.headers };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return fetch(`${API_URL}${endpoint}`, { ...options, headers });
 };
 
 function reducer(state, action) {
   switch (action.type) {
+    case 'SET_DATA':
+      return { ...state, groups: action.payload.groups, resources: action.payload.resources, messages: action.payload.messages, notifications: action.payload.notifications || [] };
+    
+    // ── Notifications ──
+    case 'SET_NOTIFICATIONS':
+      return { ...state, notifications: action.payload };
+    case 'ADD_NOTIFICATION':
+      if (state.notifications.some(n => n._id === action.payload._id || (n.groupId === action.payload.groupId && n.type === action.payload.type && n.message === action.payload.message))) {
+        return state;
+      }
+      return { ...state, notifications: [action.payload, ...state.notifications] };
+    case 'MARK_NOTIFICATION_READ':
+      return {
+        ...state,
+        notifications: state.notifications.map(n => 
+          n._id === action.payload ? { ...n, isRead: true } : n
+        )
+      };
+    
     // ── Groups ──
     case 'ADD_GROUP':
       return { ...state, groups: [action.payload, ...state.groups] };
@@ -223,7 +62,7 @@ function reducer(state, action) {
     case 'TOGGLE_PIN_GROUP':
       return {
         ...state,
-        groups: state.groups.map(g => g.id === action.payload ? { ...g, pinned: !g.pinned } : g),
+        groups: state.groups.map(g => g.id === action.payload.id ? { ...g, pinned: action.payload.pinned } : g),
       };
 
     // ── Resources ──
@@ -236,26 +75,26 @@ function reducer(state, action) {
       };
     case 'DELETE_RESOURCE':
       return { ...state, resources: state.resources.filter(r => r.id !== action.payload) };
-    case 'TOGGLE_LIKE':
+    case 'UPDATE_RESOURCE_LIKE':
       return {
         ...state,
         resources: state.resources.map(r =>
-          r.id === action.payload
-            ? { ...r, likedByUser: !r.likedByUser, likes: r.likedByUser ? r.likes - 1 : r.likes + 1 }
+          r.id === action.payload.id
+            ? { ...r, likedByUser: action.payload.likedByUser, likes: action.payload.likes }
             : r
         ),
       };
-    case 'TOGGLE_PIN_RESOURCE':
+    case 'UPDATE_RESOURCE_PIN':
       return {
         ...state,
         resources: state.resources.map(r =>
-          r.id === action.payload ? { ...r, pinned: !r.pinned } : r
+          r.id === action.payload.id ? { ...r, pinned: action.payload.pinned } : r
         ),
       };
 
     // ── Messages ──
     case 'ADD_MESSAGE':
-      return { ...state, messages: [action.payload, ...state.messages] };
+      return { ...state, messages: [...state.messages, action.payload] };
 
     // ── Toasts ──
     case 'ADD_TOAST':
@@ -268,12 +107,97 @@ function reducer(state, action) {
   }
 }
 
-// ─── Context ─────────────────────────────────────────────────────────────────
+const mapDoc = (doc, userProfile) => {
+  if (!doc) return doc;
+  const { _id, ...rest } = doc;
+  const idStr = _id.toString();
+  
+  if (userProfile && rest.topic) {
+    rest.pinned = userProfile.pinnedGroups?.includes(idStr);
+    rest.joined = Array.isArray(rest.members) 
+      ? rest.members.some(m => (m._id || m).toString() === userProfile._id.toString()) 
+      : false;
+  } else if (userProfile && rest.title) {
+    rest.pinned = userProfile.pinnedResources?.includes(idStr);
+    rest.likedByUser = userProfile.likedResources?.includes(idStr);
+  }
+  
+  if (rest.members !== undefined) {
+    rest.memberCount = Array.isArray(rest.members) ? rest.members.length : (typeof rest.members === 'number' ? rest.members : 0);
+  } else {
+    rest.memberCount = 0;
+  }
+  
+  return { ...rest, id: idStr };
+};
 
 const AppContext = createContext(null);
 
 export const AppProvider = ({ children }) => {
   const [state, dispatch] = useReducer(reducer, initialState);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [isVerifying, setIsVerifying] = useState(true);
+
+  const refreshData = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('studyhub_token');
+      let userProfile = null;
+
+      if (token) {
+        const verifyRes = await apiFetch('/auth/verify');
+        if (verifyRes.ok) {
+          userProfile = await verifyRes.json();
+          // Keep localStorage sync'd just in case, though the token is what matters most
+          localStorage.setItem('studyhub_user', JSON.stringify(userProfile));
+          setCurrentUser(userProfile);
+        } else {
+          // Token is invalid or expired
+          localStorage.removeItem('studyhub_token');
+          localStorage.removeItem('studyhub_user');
+          setCurrentUser(null);
+          window.location.href = '/login';
+          return; // Stop execution
+        }
+      } else {
+         setCurrentUser(null);
+      }
+
+      setIsVerifying(false);
+
+      // Fetch notifications if user is logged in
+      let notifData = [];
+      if (userProfile) {
+        try {
+          const notifRes = await apiFetch(`/notifications/${userProfile._id}`);
+          if (notifRes.ok) notifData = await notifRes.json();
+        } catch (e) {
+          console.error('Failed to fetch notifications', e);
+        }
+      }
+
+      const [grpRes, resRes] = await Promise.all([
+        apiFetch(`/groups`),
+        apiFetch(`/resources`)
+      ]);
+
+      const grpData = await grpRes.json();
+      const resData = await resRes.json();
+
+      dispatch({ type: 'SET_DATA', payload: {
+        groups: Array.isArray(grpData) ? grpData.map(g => mapDoc(g, userProfile)) : [],
+        resources: Array.isArray(resData) ? resData.map(r => mapDoc(r, userProfile)) : [],
+        messages: [],
+        notifications: Array.isArray(notifData) ? notifData : []
+      }});
+    } catch (err) {
+      console.error(err);
+      setIsVerifying(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshData();
+  }, [refreshData]);
 
   const showToast = useCallback((message, type = 'success') => {
     const id = genId();
@@ -281,72 +205,270 @@ export const AppProvider = ({ children }) => {
     setTimeout(() => dispatch({ type: 'REMOVE_TOAST', payload: id }), 3500);
   }, []);
 
-  // ── Groups ──
-  const addGroup = useCallback((data) => {
-    const group = { ...data, id: genId(), members: 1, recentActivity: new Date().toISOString(), createdAt: new Date().toISOString() };
-    dispatch({ type: 'ADD_GROUP', payload: group });
-    showToast(`Group "${group.name}" created!`);
-    return group.id;
+  const addGroup = useCallback(async (data) => {
+    try {
+      const payload = { ...data, creator: currentUser?._id };
+      const res = await apiFetch(`/groups`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const resData = await res.json();
+      if (!res.ok) throw new Error(resData.message || 'Failed to create group');
+
+      const group = mapDoc(resData, currentUser);
+      dispatch({ type: 'ADD_GROUP', payload: group });
+      showToast(`Group "${group.name}" created!`);
+      return group.id;
+    } catch (err) { 
+      showToast(err.message, "error"); 
+    }
+  }, [showToast, currentUser]);
+
+  const joinGroup = useCallback(async (id) => {
+    if(!currentUser) return showToast("Please log in first", "error");
+    try {
+      const res = await apiFetch(`/groups/${id}/join`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: currentUser._id })
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        const mapped = mapDoc(updated, currentUser);
+        dispatch({ type: 'UPDATE_GROUP', payload: mapped });
+        showToast("Joined group!");
+      }
+    } catch (err) { }
+  }, [currentUser, showToast]);
+
+  const updateGroup = useCallback(async (data) => {
+    try {
+      const res = await apiFetch(`/groups/${data.id}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      if (!res.ok) throw new Error('Failed to update group');
+      dispatch({ type: 'UPDATE_GROUP', payload: mapDoc(await res.json(), currentUser) });
+      showToast('Group updated successfully.');
+    } catch (err) { showToast(err.message, "error"); }
+  }, [showToast, currentUser]);
+
+  const deleteGroup = useCallback(async (id, name) => {
+    try {
+      const res = await apiFetch(`/groups/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete group (Unauth?)');
+      dispatch({ type: 'DELETE_GROUP', payload: id });
+      showToast(`Group "${name}" deleted.`, 'error');
+    } catch (err) { showToast(err.message, "error"); }
   }, [showToast]);
 
-  const updateGroup = useCallback((data) => {
-    dispatch({ type: 'UPDATE_GROUP', payload: data });
-    showToast('Group updated successfully.');
+  const togglePinGroup = useCallback(async (id) => {
+    if(!currentUser) return;
+    try {
+      const res = await apiFetch(`/users/${currentUser._id}/pin-group`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ groupId: id })
+      });
+      if (res.ok) {
+        const pinnedGroups = await res.json();
+        setCurrentUser(prev => ({...prev, pinnedGroups}));
+        dispatch({ type: 'TOGGLE_PIN_GROUP', payload: { id, pinned: pinnedGroups.includes(id) } });
+      }
+    } catch (e) { }
+  }, [currentUser]);
+
+  const addResource = useCallback(async (data) => {
+    try {
+      let res;
+      if (data.file) {
+        const fd = new FormData();
+        fd.append('file', data.file);
+        fd.append('title', data.title);
+        fd.append('type', data.type);
+        fd.append('author', currentUser?.name || 'Scholar');
+        fd.append('authorId', currentUser?._id || '');
+        fd.append('groupId', data.groupId);
+        fd.append('description', data.description || '');
+        fd.append('tags', JSON.stringify(data.tags || []));
+        res = await apiFetch(`/resources`, { method: 'POST', body: fd });
+      } else {
+        const payload = { ...data, author: currentUser?.name || 'Scholar', authorId: currentUser?._id };
+        res = await apiFetch(`/resources`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      }
+      if (!res.ok) throw new Error('Failed to add resource');
+      dispatch({ type: 'ADD_RESOURCE', payload: mapDoc(await res.json(), currentUser) });
+      showToast('Resource shared successfully!');
+    } catch (err) { showToast(err.message, "error"); }
+  }, [showToast, currentUser]);
+
+  const updateResource = useCallback(async (data) => {
+    try {
+      const { id, ...rest } = data;
+      const res = await apiFetch(`/resources/${id}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(rest)
+      });
+      if (!res.ok) throw new Error('Failed to update resource');
+      dispatch({ type: 'UPDATE_RESOURCE', payload: mapDoc(await res.json(), currentUser) });
+      showToast('Resource updated.');
+    } catch (err) { showToast(err.message, "error"); }
+  }, [showToast, currentUser]);
+
+  const deleteResource = useCallback(async (id) => {
+    try {
+      const res = await apiFetch(`/resources/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete resource');
+      dispatch({ type: 'DELETE_RESOURCE', payload: id });
+      showToast('Resource removed.', 'error');
+    } catch (err) { showToast(err.message, "error"); }
   }, [showToast]);
 
-  const deleteGroup = useCallback((id, name) => {
-    dispatch({ type: 'DELETE_GROUP', payload: id });
-    showToast(`Group "${name}" deleted.`, 'error');
-  }, [showToast]);
+  const toggleLike = useCallback(async (id) => {
+    if(!currentUser) return;
+    try {
+      const res = await apiFetch(`/users/${currentUser._id}/like-resource`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resourceId: id })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCurrentUser(prev => ({...prev, likedResources: data.likedResources}));
+        dispatch({ type: 'UPDATE_RESOURCE_LIKE', payload: { id, likedByUser: data.likedResources.includes(id), likes: data.likes } });
+      }
+    } catch (e) { }
+  }, [currentUser]);
 
-  const togglePinGroup = useCallback((id) => {
-    dispatch({ type: 'TOGGLE_PIN_GROUP', payload: id });
-  }, []);
+  const togglePinResource = useCallback(async (id) => {
+    if(!currentUser) return;
+    try {
+      const res = await apiFetch(`/users/${currentUser._id}/pin-resource`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resourceId: id })
+      });
+      if(res.ok) {
+        const pinnedResources = await res.json();
+        setCurrentUser(prev => ({...prev, pinnedResources}));
+        dispatch({ type: 'UPDATE_RESOURCE_PIN', payload: { id, pinned: pinnedResources.includes(id) } });
+      }
+    } catch (e) { }
+  }, [currentUser]);
 
-  // ── Resources ──
-  const addResource = useCallback((data) => {
-    const resource = { ...data, id: genId(), likes: 0, likedByUser: false, uploadedAt: new Date().toISOString() };
-    dispatch({ type: 'ADD_RESOURCE', payload: resource });
-    showToast('Resource shared successfully!');
-  }, [showToast]);
-
-  const updateResource = useCallback((data) => {
-    dispatch({ type: 'UPDATE_RESOURCE', payload: data });
-    showToast('Resource updated.');
-  }, [showToast]);
-
-  const deleteResource = useCallback((id) => {
-    dispatch({ type: 'DELETE_RESOURCE', payload: id });
-    showToast('Resource removed.', 'error');
-  }, [showToast]);
-
-  const toggleLike = useCallback((id) => {
-    dispatch({ type: 'TOGGLE_LIKE', payload: id });
-  }, []);
-
-  const togglePinResource = useCallback((id) => {
-    dispatch({ type: 'TOGGLE_PIN_RESOURCE', payload: id });
-  }, []);
-
-  // ── Messages ──
-  const sendMessage = useCallback((groupId, text) => {
+  const sendMessage = useCallback(async (groupId, text) => {
     const msg = {
-      id: genId(), groupId, sender: 'You', avatar: 'YO',
+      id: genId(), groupId, sender: currentUser?.name || 'Scholar', avatar: (currentUser?.name || 'S').substring(0,2).toUpperCase(),
       text, timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      isCurrentUser: true, isSystem: false,
+      isCurrentUser: true, isSystem: false, authorId: currentUser?._id
     };
     dispatch({ type: 'ADD_MESSAGE', payload: msg });
-  }, []);
+
+    try {
+       await apiFetch(`/messages`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ groupId, text, author: currentUser?.name || 'Scholar', authorId: currentUser?._id, avatar: msg.avatar })
+      });
+    } catch (e) {}
+  }, [currentUser]);
+
+  const fetchMessagesForGroup = useCallback(async (groupId) => {
+     try {
+       const res = await apiFetch(`/messages/${groupId}`);
+       const result = await res.json();
+       if(Array.isArray(result) && result.length > 0) {
+          const mapped = result.map(m => mapDoc({
+             ...m,
+             sender: m.author,
+             timestamp: new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+             isCurrentUser: m.authorId ? m.authorId === currentUser?._id : m.author === (currentUser?.name || 'Scholar')
+          }, currentUser));
+          dispatch({ type: 'SET_DATA', payload: { ...state, messages: [...state.messages.filter(m => m.groupId !== groupId), ...mapped] }})
+       }
+     } catch (e) {}
+  }, [state, currentUser]);
 
   const removeToast = useCallback((id) => {
     dispatch({ type: 'REMOVE_TOAST', payload: id });
   }, []);
 
+  const markNotificationAsRead = useCallback(async (id) => {
+    dispatch({ type: 'MARK_NOTIFICATION_READ', payload: id });
+    try {
+      await apiFetch(`/notifications/read/${id}`, { method: 'PATCH' });
+    } catch (e) {}
+  }, []);
+
+  const [socket, setSocket] = useState(null);
+  const [onlineUsers, setOnlineUsers] = useState([]);
+
+  const logout = useCallback(() => {
+    localStorage.removeItem('studyhub_token');
+    localStorage.removeItem('studyhub_user');
+    setCurrentUser(null);
+    if (socket) {
+      socket.disconnect();
+      setSocket(null);
+    }
+    setOnlineUsers([]);
+    dispatch({ type: 'SET_DATA', payload: { groups: [], resources: [], messages: [], notifications: [] } });
+  }, [socket]);
+
+
+  useEffect(() => {
+    if (currentUser) {
+      const newSocket = io('http://localhost:5000');
+      
+      newSocket.on('connect', () => {
+        newSocket.emit('user_connected', currentUser._id);
+      });
+
+      newSocket.on('online_users_updated', (users) => {
+        setOnlineUsers(users);
+      });
+
+      newSocket.on('new_notification', (notif) => {
+        // Check if the notification is meant for this user
+        if (notif.type === 'resource_added' || notif.type === 'message_added') {
+           if (!notif.notifyUsers || !notif.notifyUsers.includes(currentUser._id.toString())) {
+             return; // Ignore if not meant for this user
+           }
+        }
+        
+        const newNotif = {
+           _id: Math.random().toString(36).substr(2, 9), // Local ID until refreshed
+           ...notif,
+           isRead: false,
+           createdAt: new Date().toISOString()
+        };
+        
+        dispatch({ type: 'ADD_NOTIFICATION', payload: newNotif });
+      });
+
+      setSocket(newSocket);
+
+      return () => {
+        newSocket.disconnect();
+      };
+    } else {
+      if (socket) {
+        socket.disconnect();
+        setSocket(null);
+      }
+    }
+  }, [currentUser]);  
+
   const value = {
     ...state,
-    addGroup, updateGroup, deleteGroup, togglePinGroup,
+    currentUser,
+    setCurrentUser,
+    isVerifying,
+    socket,
+    onlineUsers,
+    notifications: state.notifications || [],
+    addGroup, joinGroup, updateGroup, deleteGroup, togglePinGroup,
     addResource, updateResource, deleteResource, toggleLike, togglePinResource,
-    sendMessage, showToast, removeToast,
+    sendMessage, showToast, removeToast, fetchMessagesForGroup, refreshData, logout,
+    markNotificationAsRead,
     topics: ["Computer Science", "Mathematics", "Physics", "Software Engineering", "Engineering", "Business"],
     semesters: ["Semester 1", "Semester 2", "Semester 3", "Semester 4", "Semester 5", "Semester 6", "Semester 7", "Semester 8"],
   };

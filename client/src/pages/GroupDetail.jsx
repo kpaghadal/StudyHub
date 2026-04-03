@@ -10,7 +10,7 @@ import './GroupDetail.css';
 export default function GroupDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { groups, resources, messages, deleteGroup, toggleLike, togglePinResource, deleteResource, sendMessage } = useApp();
+  const { groups, resources, messages, deleteGroup, toggleLike, togglePinResource, deleteResource, sendMessage, currentUser, joinGroup, fetchMessagesForGroup } = useApp();
   const [tab, setTab] = useState('resources');
   const [showAddRes, setShowAddRes] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
@@ -19,15 +19,21 @@ export default function GroupDetail() {
   const [msgText, setMsgText] = useState('');
   const chatEnd = useRef(null);
 
-  const group = groups.find(g => g.id === parseInt(id));
-  const groupResources = resources.filter(r => r.groupId === parseInt(id)).sort((a, b) => {
-    if (a.pinned && !b.pinned) return -1;
-    if (!a.pinned && b.pinned) return 1;
+  const group = groups.find(g => g.id === id);
+  const groupResources = resources.filter(r => r.groupId === id).sort((a, b) => {
+    if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
     return new Date(b.uploadedAt) - new Date(a.uploadedAt);
   });
-  const groupMessages = [...messages.filter(m => m.groupId === parseInt(id))].reverse();
+  
+  const groupMessages = [...messages.filter(m => m.groupId === id)];
 
   useEffect(() => { chatEnd.current?.scrollIntoView({ behavior: 'smooth' }); }, [groupMessages.length]);
+  
+  useEffect(() => {
+    if (tab === 'discussion' && id) {
+      fetchMessagesForGroup(id);
+    }
+  }, [tab, id, fetchMessagesForGroup]);
 
   if (!group) return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh', gap: '1rem' }}>
@@ -65,10 +71,12 @@ export default function GroupDetail() {
         <div style={{ position: 'absolute', top: '1.25rem', left: '1.25rem', display: 'flex', gap: '0.5rem' }}>
           <button onClick={() => navigate('/app/groups')} style={{ width: '2.25rem', height: '2.25rem', borderRadius: '50%', background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}><ArrowLeft size={18} /></button>
         </div>
-        <div style={{ position: 'absolute', top: '1.25rem', right: '1.25rem', display: 'flex', gap: '0.5rem' }}>
-          <button onClick={() => setShowEdit(true)} style={{ width: '2.25rem', height: '2.25rem', borderRadius: '50%', background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}><Edit2 size={15} /></button>
-          <button onClick={() => setDeleteGroupConfirm(true)} style={{ width: '2.25rem', height: '2.25rem', borderRadius: '50%', background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}><Trash2 size={15} /></button>
-        </div>
+        {group.creator === currentUser?._id && (
+          <div style={{ position: 'absolute', top: '1.25rem', right: '1.25rem', display: 'flex', gap: '0.5rem' }}>
+            <button onClick={() => setShowEdit(true)} style={{ width: '2.25rem', height: '2.25rem', borderRadius: '50%', background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}><Edit2 size={15} /></button>
+            <button onClick={() => setDeleteGroupConfirm(true)} style={{ width: '2.25rem', height: '2.25rem', borderRadius: '50%', background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}><Trash2 size={15} /></button>
+          </div>
+        )}
 
         <div style={{ position: 'relative', zIndex: 1 }}>
           <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
@@ -78,17 +86,27 @@ export default function GroupDetail() {
           <h1 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: 'clamp(1.5rem,3vw,2.5rem)', color: '#fff', marginBottom: '0.5rem', lineHeight: 1.15 }}>{group.name}</h1>
           <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.875rem', maxWidth: '600px', lineHeight: 1.6 }}>{group.description}</p>
           <div style={{ display: 'flex', gap: '1.5rem', marginTop: '1rem' }}>
-            <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.375rem' }}><Users size={13} /> {group.members} members</span>
+            <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.375rem' }}><Users size={13} /> {group.memberCount} members</span>
             <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.8rem' }}>📚 {groupResources.length} resources</span>
           </div>
         </div>
       </div>
 
+      {!group.joined && (
+        <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '1rem', padding: '1rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+          <div>
+            <h3 style={{ color: '#dc2626', fontWeight: 700, fontSize: '0.95rem', marginBottom: '0.2rem' }}>You are exploring as a guest</h3>
+            <p style={{ color: '#991b1b', fontSize: '0.8rem' }}>Join this group to upload resources and participate in the discussion.</p>
+          </div>
+          <button onClick={() => joinGroup(group.id)} style={{ background: '#dc2626', color: '#fff', padding: '0.5rem 1.25rem', borderRadius: '999px', fontWeight: 700, fontSize: '0.85rem', border: 'none', cursor: 'pointer' }}>Join Group</button>
+        </div>
+      )}
+
       {/* Tabs */}
       <div style={{ display: 'flex', borderBottom: '1px solid #f2f4f6', marginBottom: '1.75rem', overflowX: 'auto' }}>
         {[
           { id: 'resources', label: 'Resources', icon: <FolderIcon /> },
-          { id: 'members', label: `Members (${group.members})`, icon: <Users size={15} /> },
+          { id: 'members', label: `Members (${group.memberCount})`, icon: <Users size={15} /> },
           { id: 'discussion', label: 'Discussion', icon: <MessageSquare size={15} /> },
         ].map(t => (
           <button key={t.id} onClick={() => setTab(t.id)} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.875rem 1.5rem', border: 'none', borderBottom: `2px solid ${tab === t.id ? '#6366f1' : 'transparent'}`, background: 'transparent', color: tab === t.id ? '#6366f1' : '#767586', fontWeight: tab === t.id ? 700 : 500, fontSize: '0.875rem', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s' }}>
@@ -108,7 +126,11 @@ export default function GroupDetail() {
                   <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📂</div>
                   <h3 style={{ fontWeight: 700, color: '#191c1e', marginBottom: '0.375rem' }}>No resources yet</h3>
                   <p style={{ fontSize: '0.875rem', color: '#767586', marginBottom: '1.5rem' }}>Be the first to share a resource with this group!</p>
-                  <button onClick={() => setShowAddRes(true)} style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', color: '#fff', fontWeight: 700, padding: '0.625rem 1.5rem', borderRadius: '999px', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}><Plus size={16} /> Add Resource</button>
+                  {group.joined ? (
+                    <button onClick={() => setShowAddRes(true)} style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', color: '#fff', fontWeight: 700, padding: '0.625rem 1.5rem', borderRadius: '999px', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}><Plus size={16} /> Add Resource</button>
+                  ) : (
+                    <button onClick={() => joinGroup(group.id)} style={{ background: '#f2f4f6', color: '#767586', fontWeight: 700, padding: '0.625rem 1.5rem', borderRadius: '999px', border: 'none', cursor: 'pointer' }}>Join to Add</button>
+                  )}
                 </div>
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '1rem', position: 'relative' }}>
@@ -117,7 +139,9 @@ export default function GroupDetail() {
                       {res.pinned && <div style={{ position: 'absolute', top: '0.75rem', left: '0.75rem', color: '#6366f1' }}><Pin size={12} /></div>}
                       <div style={{ position: 'absolute', top: '0.75rem', right: '0.75rem', display: 'flex', gap: '0.375rem' }}>
                         <button onClick={() => togglePinResource(res.id)} title="Pin" style={{ ...rBtn, color: res.pinned ? '#6366f1' : '#767586' }}><Bookmark size={12} /></button>
-                        <button onClick={() => setDeleteResConfirm(res)} title="Delete" style={{ ...rBtn, color: '#ef4444' }}><Trash2 size={12} /></button>
+                        {(res.authorId === currentUser?._id || group.creator === currentUser?._id) && (
+                          <button onClick={() => setDeleteResConfirm(res)} title="Delete" style={{ ...rBtn, color: '#ef4444' }}><Trash2 size={12} /></button>
+                        )}
                       </div>
 
                       <div style={{ width: '2.75rem', height: '2.75rem', borderRadius: '0.875rem', background: '#eef2ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6366f1', marginBottom: '0.875rem' }}>
@@ -177,9 +201,11 @@ export default function GroupDetail() {
                     </div>
                   ))}
                 </div>
-                <button onClick={() => setShowAddRes(true)} style={{ width: '100%', marginTop: '1rem', padding: '0.625rem', borderRadius: '999px', background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', color: '#fff', fontWeight: 700, fontSize: '0.82rem', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-                  <Plus size={15} /> Add Resource
-                </button>
+                {group.joined && (
+                  <button onClick={() => setShowAddRes(true)} style={{ width: '100%', marginTop: '1rem', padding: '0.625rem', borderRadius: '999px', background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', color: '#fff', fontWeight: 700, fontSize: '0.82rem', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                    <Plus size={15} /> Add Resource
+                  </button>
+                )}
               </div>
             </div>
           </>
@@ -188,17 +214,14 @@ export default function GroupDetail() {
         {/* ── Members Tab ── */}
         {tab === 'members' && (
           <div style={{ background: '#fff', borderRadius: '1.5rem', padding: '1.5rem', boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
-            <h3 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, marginBottom: '1.25rem' }}>Group Members ({group.members})</h3>
+            <h3 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 700, marginBottom: '1.25rem' }}>Group Members ({group.memberCount})</h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '0.75rem' }}>
-              {Array.from({ length: Math.min(group.members, 12) }, (_, i) => ({
-                name: ['Alex Johnson', 'Maria Garcia', 'Sam Smith', 'Priya Nair', 'David Lee', 'Elena M.', 'Rahul Shah', 'Aiko Tanaka', 'Carlos R.', 'Fatima A.', 'John D.', 'Lily Chen'][i % 12],
-                role: ['Year 3', 'Year 2', 'Year 4', 'Year 1', 'Year 3', 'Year 2', 'Year 4', 'Year 3', 'Year 1', 'Year 2', 'Year 3', 'Year 4'][i % 12],
-              })).map((m, i) => (
+              {(group.members || []).map((m, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem', borderRadius: '0.875rem', border: '1px solid #f2f4f6', transition: 'all 0.15s' }}>
-                  <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(m.name)}&background=random&size=40`} style={{ width: 40, height: 40, borderRadius: '50%' }} alt={m.name} />
+                  <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(m.name || 'Scholar')}&background=random&size=40`} style={{ width: 40, height: 40, borderRadius: '50%' }} alt={m.name} />
                   <div>
-                    <p style={{ fontWeight: 700, fontSize: '0.85rem', color: '#191c1e' }}>{m.name}</p>
-                    <p style={{ fontSize: '0.72rem', color: '#767586' }}>{group.topic} · {m.role}</p>
+                    <p style={{ fontWeight: 700, fontSize: '0.85rem', color: '#191c1e' }}>{m.name || 'Scholar'}</p>
+                    <p style={{ fontSize: '0.72rem', color: '#767586' }}>{group.topic} · Member</p>
                   </div>
                 </div>
               ))}
@@ -222,7 +245,7 @@ export default function GroupDetail() {
                     <div style={{ width: '100%', textAlign: 'center', fontSize: '0.72rem', color: '#767586', fontStyle: 'italic', background: '#f7f9fb', padding: '0.375rem 0.75rem', borderRadius: '999px' }}>{msg.text}</div>
                   ) : (
                     <div style={{ maxWidth: '70%', padding: '0.75rem 1rem', borderRadius: '1rem', background: msg.isCurrentUser ? 'linear-gradient(135deg,#6366f1,#8b5cf6)' : '#f2f4f6', borderBottomRightRadius: msg.isCurrentUser ? '0.25rem' : '1rem', borderBottomLeftRadius: msg.isCurrentUser ? '1rem' : '0.25rem' }}>
-                      {!msg.isCurrentUser && <div style={{ fontSize: '0.65rem', fontWeight: 700, color: '#6366f1', marginBottom: '0.25rem' }}>{msg.sender}</div>}
+                      <div style={{ fontSize: '0.65rem', fontWeight: 700, color: msg.isCurrentUser ? 'rgba(255,255,255,0.9)' : '#6366f1', marginBottom: '0.25rem' }}>{msg.sender}</div>
                       <p style={{ fontSize: '0.875rem', color: msg.isCurrentUser ? '#fff' : '#191c1e', lineHeight: 1.5 }}>{msg.text}</p>
                       <div style={{ fontSize: '0.65rem', marginTop: '0.25rem', color: msg.isCurrentUser ? 'rgba(255,255,255,0.6)' : '#767586', textAlign: msg.isCurrentUser ? 'right' : 'left' }}>{msg.timestamp}</div>
                     </div>
@@ -231,16 +254,22 @@ export default function GroupDetail() {
               ))}
               <div ref={chatEnd} />
             </div>
-            <form onSubmit={handleSend} style={{ padding: '1rem 1.25rem', borderTop: '1px solid #f2f4f6', display: 'flex', gap: '0.625rem' }}>
-              <input value={msgText} onChange={e => setMsgText(e.target.value)} placeholder="Type a message…" style={{ flex: 1, background: '#f7f9fb', border: '1px solid #e0e3e5', borderRadius: '999px', padding: '0.625rem 1rem', fontSize: '0.875rem', fontFamily: 'Inter, sans-serif', outline: 'none', color: '#191c1e' }} />
-              <button type="submit" style={{ width: '2.5rem', height: '2.5rem', borderRadius: '50%', background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', flexShrink: 0 }}><Send size={15} /></button>
-            </form>
+            {group.joined ? (
+              <form onSubmit={handleSend} style={{ padding: '1rem 1.25rem', borderTop: '1px solid #f2f4f6', display: 'flex', gap: '0.625rem' }}>
+                <input value={msgText} onChange={e => setMsgText(e.target.value)} placeholder="Type a message…" style={{ flex: 1, background: '#f7f9fb', border: '1px solid #e0e3e5', borderRadius: '999px', padding: '0.625rem 1rem', fontSize: '0.875rem', fontFamily: 'Inter, sans-serif', outline: 'none', color: '#191c1e' }} />
+                <button type="submit" style={{ width: '2.5rem', height: '2.5rem', borderRadius: '50%', background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', flexShrink: 0 }}><Send size={15} /></button>
+              </form>
+            ) : (
+              <div style={{ padding: '1rem', background: '#fef2f2', textAlign: 'center', borderTop: '1px solid #fecaca', color: '#dc2626', fontSize: '0.82rem', fontWeight: 600 }}>
+                You must join this group to send messages.
+              </div>
+            )}
           </div>
         )}
       </div>
 
       {/* Floating Add Button */}
-      {tab === 'resources' && (
+      {tab === 'resources' && group.joined && (
         <button onClick={() => setShowAddRes(true)} style={{ position: 'fixed', bottom: '2rem', right: '2rem', width: '3.5rem', height: '3.5rem', borderRadius: '50%', background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', color: '#fff', border: 'none', cursor: 'pointer', boxShadow: '0 8px 24px rgba(99,102,241,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 40, transition: 'transform 0.2s' }}>
           <Plus size={22} />
         </button>

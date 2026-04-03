@@ -7,13 +7,19 @@ import AddResourceModal from '../components/AddResourceModal';
 
 export default function Profile() {
   const navigate = useNavigate();
-  const { groups, resources, toggleLike, togglePinResource, deleteResource } = useApp();
+  const { groups, resources, togglePinResource, currentUser, deleteResource } = useApp();
   const [deleteResConfirm, setDeleteResConfirm] = useState(null);
   const [showAddRes, setShowAddRes] = useState(false);
 
-  const myResources = resources.filter(r => r.author === 'You' || r.author === 'Alex Johnson').slice(0, 6);
+  // Dynamic derivations based on Mongo ID / Name
+  const myResources = resources.filter(r => r.author === currentUser?.name).slice(0, 6);
   const pinnedResources = resources.filter(r => r.pinned).slice(0, 4);
-  const joinedGroups = groups.slice(0, 4);
+  const joinedGroups = groups.filter(g => g.joined).slice(0, 4);
+
+  const getInitials = (name) => {
+    if(!name) return 'U';
+    return name.split(' ').map(n=>n[0]).join('').substring(0,2).toUpperCase();
+  };
 
   const timeAgo = (iso) => {
     const d = Math.floor((Date.now() - new Date(iso)) / 86400000);
@@ -47,7 +53,7 @@ export default function Profile() {
           {/* Avatar */}
           <div style={{ position: 'relative' }}>
             <div style={{ width: '7rem', height: '7rem', borderRadius: '50%', background: 'linear-gradient(135deg, #eef2ff, #ddd6fe)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2.5rem', fontWeight: 800, color: '#6366f1', fontFamily: 'Manrope, sans-serif', border: '4px solid #fff', boxShadow: '0 8px 24px rgba(99,102,241,0.2)' }}>
-              JD
+              {getInitials(currentUser?.name)}
             </div>
             <button style={{ position: 'absolute', bottom: 0, right: 0, width: '2rem', height: '2rem', borderRadius: '50%', background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', boxShadow: '0 2px 8px rgba(99,102,241,0.4)' }}>
               <Edit2 size={13} />
@@ -56,20 +62,10 @@ export default function Profile() {
 
           {/* Info */}
           <div style={{ flex: 1, minWidth: '200px' }}>
-            <h1 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '1.875rem', color: '#191c1e', marginBottom: '0.25rem' }}>Jane Doe</h1>
-            <p style={{ color: '#767586', fontSize: '0.875rem', marginBottom: '1rem' }}>jane.doe@university.edu</p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
-              {[
-                { l: 'Computer Science', bg: '#eef2ff', c: '#6366f1' },
-                { l: 'Semester 4', bg: '#f2f4f6', c: '#464554' },
-                { l: '🏆 Top Contributor', bg: '#fffbeb', c: '#b45309' },
-              ].map(b => (
-                <span key={b.l} style={{ background: b.bg, color: b.c, fontSize: '0.72rem', fontWeight: 700, padding: '0.3rem 0.75rem', borderRadius: '999px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{b.l}</span>
-              ))}
-            </div>
-            <p style={{ color: '#767586', fontSize: '0.875rem', lineHeight: 1.7, maxWidth: '500px' }}>
-              Passionate about algorithms, AI, and building efficient systems. Always looking for new study groups to tackle challenging assignments together.
-            </p>
+            <h1 style={{ fontFamily: 'Manrope, sans-serif', fontWeight: 800, fontSize: '1.875rem', color: '#191c1e', marginBottom: '0.25rem' }}>{currentUser?.name || 'Student'}</h1>
+            <p style={{ color: '#767586', fontSize: '0.875rem', marginBottom: '1rem' }}>{currentUser?.email || 'student@university.edu'}</p>
+            
+            
           </div>
 
           {/* Stats + Settings */}
@@ -78,7 +74,7 @@ export default function Profile() {
               <Settings size={16} />
             </button>
             <div style={{ display: 'flex', gap: '1.5rem' }}>
-              {[{ v: myResources.length, l: 'Resources' }, { v: groups.length, l: 'Groups' }, { v: '156', l: 'Contributions' }].map(s => (
+              {[{ v: myResources.length, l: 'Resources' }, { v: joinedGroups.length, l: 'Groups' }, { v: currentUser?.likedResources?.length || 0, l: 'Likes Given' }].map(s => (
                 <div key={s.l} style={{ textAlign: 'center' }}>
                   <p style={{ fontFamily: 'Manrope, sans-serif', fontSize: '1.5rem', fontWeight: 800, color: '#191c1e', lineHeight: 1 }}>{s.v}</p>
                   <p style={{ fontSize: '0.68rem', color: '#767586', fontWeight: 600, marginTop: '0.2rem' }}>{s.l}</p>
@@ -98,9 +94,9 @@ export default function Profile() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             {[
               { icon: <BookOpen size={18} />, bg: '#eef2ff', c: '#6366f1', val: myResources.length, label: 'Resources Shared' },
-              { icon: <Users size={18} />, bg: '#f0fdf4', c: '#10b981', val: groups.length, label: 'Active Groups' },
-              { icon: <Activity size={18} />, bg: '#fff7ed', c: '#f59e0b', val: 156, label: 'Contributions this month' },
-              { icon: <Heart size={18} />, bg: '#fff1f2', c: '#ef4444', val: resources.reduce((s, r) => s + (r.likedByUser ? 1 : 0), 0), label: 'Resources Liked' },
+              { icon: <Users size={18} />, bg: '#f0fdf4', c: '#10b981', val: joinedGroups.length, label: 'Active Groups' },
+              { icon: <Pin size={18} />, bg: '#fffbeb', c: '#f59e0b', val: currentUser?.pinnedGroups?.length || 0, label: 'Pinned Groups' },
+              { icon: <Heart size={18} />, bg: '#fff1f2', c: '#ef4444', val: currentUser?.likedResources?.length || 0, label: 'Resources Liked' },
             ].map(s => (
               <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                 <div style={{ width: '2.75rem', height: '2.75rem', borderRadius: '0.75rem', background: s.bg, color: s.c, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{s.icon}</div>
@@ -146,7 +142,7 @@ export default function Profile() {
                   <span style={{ fontSize: '0.6rem', fontWeight: 700, background: '#f2f4f6', color: '#767586', padding: '0.15rem 0.5rem', borderRadius: '999px', textTransform: 'uppercase' }}>{g.topic.split(' ')[0]}</span>
                 </div>
                 <h4 style={{ fontWeight: 700, fontSize: '0.85rem', color: '#191c1e', marginBottom: '0.375rem', lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{g.name}</h4>
-                <p style={{ fontSize: '0.68rem', color: '#767586', display: 'flex', alignItems: 'center', gap: '0.3rem' }}><Users size={10} /> {g.members} members</p>
+                <p style={{ fontSize: '0.68rem', color: '#767586', display: 'flex', alignItems: 'center', gap: '0.3rem' }}><Users size={10} /> {g.memberCount} members</p>
               </div>
             ))}
           </div>

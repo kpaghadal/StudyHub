@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Home, Library, Users, Calendar, BarChart2, HelpCircle, LogOut, Plus, BookOpen, User } from 'lucide-react';
+import { Home, Library, Users, Calendar, BarChart2, HelpCircle, LogOut, Plus, BookOpen, User, MessageCircle, Shield } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import CreateGroupModal from './CreateGroupModal';
 import './Sidebar.css';
@@ -10,14 +10,14 @@ const navItems = [
   { to: '/app/groups', icon: Users, label: 'Study Groups' },
   { to: '/app/resources', icon: BookOpen, label: 'Resources' },
   { to: '/app/library', icon: Library, label: 'My Library' },
-  { to: '/app/schedule', icon: Calendar, label: 'Schedule' },
   { to: '/app/events', icon: BarChart2, label: 'Events' },
+  { to: '/app/doubts', icon: MessageCircle, label: 'Doubt Hub' },
   { to: '/app/profile', icon: User, label: 'Profile' },
 ];
 
 const Sidebar = () => {
   const [showCreate, setShowCreate] = useState(false);
-  const { groups } = useApp();
+  const { groups, currentUser, logout } = useApp();
   const navigate = useNavigate();
   const pinnedGroups = groups.filter(g => g.pinned).slice(0, 3);
 
@@ -55,11 +55,20 @@ const Sidebar = () => {
           <div style={{ marginTop: '1.25rem', padding: '0 0.25rem' }}>
             <button
               onClick={() => setShowCreate(true)}
-              className="btn btn-primary w-full rounded-full py-2.5 shadow-md"
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', fontWeight: 700, fontSize: '0.875rem', border: 'none', borderRadius: '999px', padding: '0.625rem 1rem', cursor: 'pointer', width: '100%', boxShadow: '0 4px 12px rgba(99,102,241,0.3)' }}
+              className="btn w-full rounded-full py-2.5 shadow-md flex items-center justify-center gap-2"
+              style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', fontWeight: 700, fontSize: '0.875rem', border: 'none', cursor: 'pointer', transition: 'transform 0.2s', boxShadow: '0 4px 12px rgba(99,102,241,0.3)' }}
             >
               <Plus size={16} /> New Group
             </button>
+            {currentUser?.role === 'admin' && (
+              <button
+                onClick={() => navigate('/admin')}
+                className="btn w-full rounded-full py-2.5 shadow-md flex items-center justify-center gap-2"
+                style={{ marginTop: '0.75rem', background: '#eef2ff', color: '#6366f1', fontWeight: 700, fontSize: '0.875rem', border: '1px solid #c7d2fe', cursor: 'pointer', transition: 'all 0.2s' }}
+              >
+                <Shield size={16} /> Admin Console
+              </button>
+            )}
           </div>
 
           {/* Pinned Groups */}
@@ -86,11 +95,14 @@ const Sidebar = () => {
 
         <div className="sidebar-footer">
           <ul className="nav-list">
-            <li className="nav-item">
+            {/* <li className="nav-item">
               <button className="nav-link w-full"><HelpCircle size={17} /><span>Help</span></button>
-            </li>
+            </li> */}
             <li className="nav-item">
-              <button className="nav-link w-full" style={{ color: 'var(--accent)' }} onClick={() => navigate('/')}>
+              <button className="nav-link w-full" style={{ color: 'var(--accent)' }} onClick={() => {
+                logout();
+                navigate('/login');
+              }}>
                 <LogOut size={17} /><span>Logout</span>
               </button>
             </li>

@@ -8,7 +8,7 @@ import './GroupList.css';
 
 export default function GroupList() {
   const navigate = useNavigate();
-  const { groups, deleteGroup, togglePinGroup, topics, semesters } = useApp();
+  const { groups, deleteGroup, togglePinGroup, topics, semesters, currentUser } = useApp();
   const [query, setQuery] = useState('');
   const [topic, setTopic] = useState('All');
   const [semester, setSemester] = useState('All');
@@ -34,7 +34,7 @@ export default function GroupList() {
     })
     .sort((a, b) => {
       if (sort === 'recent') return new Date(b.recentActivity) - new Date(a.recentActivity);
-      if (sort === 'popular') return b.members - a.members;
+      if (sort === 'popular') return b.memberCount - a.memberCount;
       if (sort === 'name') return a.name.localeCompare(b.name);
       return 0;
     });
@@ -86,7 +86,7 @@ export default function GroupList() {
             <span style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#767586' }}>Pinned</span>
           </div>
           <div className="groups-grid">
-            {pinned.map(g => <GroupCard key={g.id} group={g} onOpen={() => navigate(`/app/groups/${g.id}`)} onPin={() => togglePinGroup(g.id)} onDelete={() => setDeleteTarget(g)} pinned />)}
+            {pinned.map(g => <GroupCard key={g.id} group={g} currentUser={currentUser} onOpen={() => navigate(`/app/groups/${g.id}`)} onPin={() => togglePinGroup(g.id)} onDelete={() => setDeleteTarget(g)} pinned />)}
           </div>
         </div>
       )}
@@ -94,17 +94,17 @@ export default function GroupList() {
       {/* All Groups */}
       <div className="groups-grid">
         {rest.map(g => (
-          <GroupCard key={g.id} group={g} onOpen={() => navigate(`/app/groups/${g.id}`)} onPin={() => togglePinGroup(g.id)} onDelete={() => setDeleteTarget(g)} />
+          <GroupCard key={g.id} group={g} currentUser={currentUser} onOpen={() => navigate(`/app/groups/${g.id}`)} onPin={() => togglePinGroup(g.id)} onDelete={() => setDeleteTarget(g)} />
         ))}
 
         {/* Create Card */}
-        <div className="group-card create-cluster-card" onClick={() => setShowCreate(true)} style={{ minHeight: '200px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
+        {/* <div className="group-card create-cluster-card" onClick={() => setShowCreate(true)} style={{ minHeight: '200px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
           <div style={{ width: '3rem', height: '3rem', borderRadius: '50%', border: '2px dashed #c7c4d7', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#767586', marginBottom: '1rem' }}>
             <Plus size={20} />
           </div>
           <h3 style={{ fontWeight: 700, color: '#191c1e', marginBottom: '0.375rem', fontFamily: 'Manrope, sans-serif' }}>Start a Cluster</h3>
           <p style={{ fontSize: '0.78rem', color: '#767586', maxWidth: '160px' }}>Can't find your topic? Build your own community.</p>
-        </div>
+        </div> */}
 
         {filtered.length === 0 && (
           <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '4rem 2rem', color: '#767586' }}>
@@ -129,7 +129,7 @@ export default function GroupList() {
 }
 
 /* ─── Group Card ─────────────────────────────────────────────────────────── */
-function GroupCard({ group, onOpen, onPin, onDelete, pinned }) {
+function GroupCard({ group, onOpen, onPin, onDelete, pinned, currentUser }) {
   const timeAgo = (iso) => {
     const diff = Date.now() - new Date(iso).getTime();
     const m = Math.floor(diff / 60000);
@@ -145,7 +145,9 @@ function GroupCard({ group, onOpen, onPin, onDelete, pinned }) {
       {/* Top actions (show on hover via CSS) */}
       <div className="group-card-actions">
         <button title={pinned ? 'Unpin' : 'Pin'} onClick={e => { e.stopPropagation(); onPin(); }} style={{ ...actBtn, color: pinned ? '#f59e0b' : '#767586' }}><Pin size={13} /></button>
-        <button title="Delete" onClick={e => { e.stopPropagation(); onDelete(); }} style={{ ...actBtn, color: '#ef4444' }}><Trash2 size={13} /></button>
+        {group.creator === currentUser?._id && (
+          <button title="Delete" onClick={e => { e.stopPropagation(); onDelete(); }} style={{ ...actBtn, color: '#ef4444' }}><Trash2 size={13} /></button>
+        )}
       </div>
 
       <div className="group-card-header" style={{ marginBottom: '1rem' }}>
@@ -170,7 +172,7 @@ function GroupCard({ group, onOpen, onPin, onDelete, pinned }) {
                 <img key={i} src={`https://ui-avatars.com/api/?name=U${i}+${group.id}&background=random&size=24`} style={{ width: 22, height: 22, borderRadius: '50%', border: '2px solid #fff', marginLeft: i > 1 ? '-6px' : 0 }} alt="m" />
               ))}
             </div>
-            <span style={{ fontSize: '0.68rem', fontWeight: 600, color: '#767586' }}>+{group.members}</span>
+            <span style={{ fontSize: '0.68rem', fontWeight: 600, color: '#767586' }}>+{group.memberCount}</span>
           </div>
           <span style={{ fontSize: '0.65rem', color: '#767586' }}>{timeAgo(group.recentActivity)}</span>
         </div>
